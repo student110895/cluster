@@ -1,0 +1,44 @@
+max_iterations = input (or 400)
+
+class vector:
+coordinates = lst[int]
+cluster_assignment= Cluster
+
+
+Class Cluster:
+id_number = int 
+list[vectors] -> all assigned vectors
+current_centroid = vector
+previous_centroid = vector
+
+cluster_dictionary = int, cluster
+
+
+def make_vectors(set of data points)
+
+def initialize_centorids(n vectors) -> dictionary (lentgh k)(cluster dictionary)
+
+def check_euclidean_distance(vector1, vector2) -> float
+
+def check_distances_for_all_centroids_from_previous_centroid(dictionary_cluster, epsilon) -> boolean
+
+
+def clustering()
+    initialize_centorids()
+    current_iteration = 0
+    loop:
+        while check_distances_for_all_centroids_from_previous_centroid is false and current_iteration < max_iterations:
+            assign each vector to the closest centroid
+            update the centroids by calculating the mean of all vectors assigned to each cluster
+            current_iteration += 1
+    def_send_result
+
+    
+def_send_result(current_cluster_dictionary):
+    for each cluster in current_cluster_dictionary:
+        print(centroid)
+
+
+
+
+
