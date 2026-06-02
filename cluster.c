@@ -9,6 +9,9 @@
 
 int max_iterations = 400; // Default value for maximum iterations
 int K;
+Vector *vectors;
+int number_of_vectors;
+int capacity = 1000; // To keep track of allocated memory for vectors
 
 
 
@@ -65,22 +68,43 @@ int is_empty_line(char *line) {
     return line[0] == '\n' || line[0] == '\0';
 }
 
-void read_lines_from_text() {
+
+void allocate_memory_for_vectors() {
+    Vector *temp;
+    capacity *= 2; // Double the capacity
+        temp = realloc(vectors, capacity * sizeof(Vector));  
+        if (temp == NULL || vectors == NULL) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(vectors);
+            free(temp);
+            exit(EXIT_FAILURE);
+        }
+        vectors = temp;
+    }  
+
+    
+Vector *read_lines_from_text() {
     int dimensions = 0;
     char *line = NULL;
     Vector vector;
-
+    vectors = malloc(capacity * sizeof(Vector)); // Allocate memory for vectors
+    number_of_vectors = 0;
     size_t len = 0;
+    
     while (getline(&line, &len, stdin) != -1) {
         if (is_empty_line(line)) continue; // Skip empty lines
         if (dimensions == 0) {
             dimensions = count_dimensions(line);
         }
         vector = create_vector_from_line(line, dimensions);
-
-      // Implementation to read data points and create vectors
+        if (number_of_vectors >= capacity) {
+            allocate_memory_for_vectors();
+        }
+        vectors[number_of_vectors] = vector;
+        number_of_vectors++;
     }
     free(line);
+    return vectors;
 }
 
 

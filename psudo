@@ -41,4 +41,91 @@ def_send_result(current_cluster_dictionary):
 
 
 
+from chat:
+read_lines_from_text
+
+ 
+
+·        double squared_distance(Vector vector1, Vector vector2, int dimensions)
+
+·        void copy_coordinates(Vector from, Vector to, int dimensions)
+
+·        void initialize_clusters(Vector *vectors, int number_of_vectors, int dimensions)
+
+·        void reset_clusters(void)
+
+·        int find_closest_cluster(Vector vector, int dimensions)
+
+·        void assign_vectors_to_clusters(Vector *vectors, int number_of_vectors, int dimensions)
+
+·        void update_centroids(int dimensions)
+
+·        int check_if_converged(int dimensions)
+
+·        void clustering(Vector *vectors, int number_of_vectors, int dimensions)
+
+·        void send_result(int dimensions)
+
+·        void free_clusters(void)
+
+ 
+
+ 
+
+
+
+
+
+int main(int argc, char *argv[])
+{
+Vector *vectors;
+int number_of_vectors;
+int dimensions;
+
+if (argc != 2 && argc != 3) {
+print_error();
+return 1;
+}
+
+if (!is_positive_integer(argv[1])) {
+printf("Incorrect number of clusters!\n");
+return 1;
+}
+
+K = atoi(argv[1]);
+
+if (argc == 3) {
+if (!is_positive_integer(argv[2])) {
+printf("Incorrect maximum iteration!\n");
+return 1;
+}
+
+max_iterations = atoi(argv[2]);
+}
+
+if (max_iterations <= 1 || max_iterations >= 800) {
+printf("Incorrect maximum iteration!\n");
+return 1;
+}
+
+vectors = read_lines_from_text(&number_of_vectors, &dimensions);
+
+if (K <= 1 || K >= number_of_vectors) {
+printf("Incorrect number of clusters!\n");
+free_vectors(vectors, number_of_vectors);
+return 1;
+}
+
+clustering(vectors, number_of_vectors, dimensions);
+send_result(dimensions);
+
+free_clusters();
+free_vectors(vectors, number_of_vectors);
+
+return 0;
+}
+
+
+
+
 
