@@ -45,9 +45,12 @@ Vector create_vector_from_line(char *line, int dimensions) {
     int i;
 
     vector.coordinates = malloc(dimensions * sizeof(double)); 
-
     vector.cluster_assignment = -1;
 
+     if (vector.coordinates == NULL) {
+        return vector;
+    }
+    
     for (i=0; i < dimensions; i++) {
         vector.coordinates[i] = strtod(current_position, &end_position);
         current_position = end_position;
@@ -139,7 +142,7 @@ void free_clusters() {
 }
 
 int initialize_clusters() {
-    int i, j;
+    int i;
     clusters = calloc(K, sizeof(Cluster));
     
     if (clusters == NULL) {
@@ -213,34 +216,38 @@ void assign_vectors_to_clusters(Cluster *clusters, Vector *vectors) {
         vectors[i].cluster_assignment = closest_cluster_index;
     }
 }
-
 void update_centroids(Cluster *clusters, Vector *vectors) {
     int i, j;
     int cluster_index;
 
     for (i = 0; i < K; i++) {
         for (j = 0; j < dimensions; j++) {
-            clusters[i].previous_centroid.coordinates[j] = clusters[i].current_centroid.coordinates[j];
-            clusters[i].current_centroid.coordinates[j] = 0.0;
+            clusters[i].previous_centroid.coordinates[j] =
+                clusters[i].current_centroid.coordinates[j];
+
+            if (clusters[i].number_of_assigned_vectors > 0) {
+                clusters[i].current_centroid.coordinates[j] = 0.0;
+            }
         }
     }
 
     for (i = 0; i < number_of_vectors; i++) {
         cluster_index = vectors[i].cluster_assignment;
         for (j = 0; j < dimensions; j++) {
-            clusters[cluster_index].current_centroid.coordinates[j] += vectors[i].coordinates[j];
+            clusters[cluster_index].current_centroid.coordinates[j] +=
+                vectors[i].coordinates[j];
         }
     }
 
     for (i = 0; i < K; i++) {
         if (clusters[i].number_of_assigned_vectors > 0) {
             for (j = 0; j < dimensions; j++) {
-                clusters[i].current_centroid.coordinates[j] /= clusters[i].number_of_assigned_vectors;
+                clusters[i].current_centroid.coordinates[j] /=
+                    clusters[i].number_of_assigned_vectors;
             }
         }
     }
 }
-
 int check_convergence(Cluster *clusters) {
     int i;
     for (i = 0; i < K; i++) {
