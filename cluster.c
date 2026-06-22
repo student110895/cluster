@@ -4,23 +4,17 @@
 #include <math.h>
 
 
-int max_iterations;
-max_iterations = 400; // Default value for maximum iterations
+int max_iterations = 400; 
+int capacity = 1000;      
+int dimensions = 0;
+double epsilon = 0.001;   
 int K;
-Vector *vectors;
 int number_of_vectors;
-int capacity;
-capacity = 1000; // To keep track of allocated memory for vectors
-int dimensions;
-dimensions = 0;
-double epsilon = 0.001; // Convergence threshold
-
 
 typedef struct Vector {
     double *coordinates;
     int cluster_assignment; 
 } Vector;
-
 
 typedef struct {
     int id_number;
@@ -29,13 +23,12 @@ typedef struct {
     Vector previous_centroid;
 } Cluster;
 
-Cluster *clusters;
-
+Cluster *clusters = NULL;
+Vector *vectors = NULL;
 
 int count_dimensions(char *line) {
+    int i = 0;
     dimensions = 1;
-    int i;
-    i = 0;
     
     while (line[i] != '\0' && line[i] != '\n') {
         if (line[i] == ',') {
@@ -48,14 +41,14 @@ int count_dimensions(char *line) {
 
 Vector create_vector_from_line(char *line, int dimensions) {
     Vector vector;
+    char *current_position = line;
+    char *end_position;
+    int i;
+
     vector.coordinates = malloc(dimensions * sizeof(double)); //alocate memory for coordinates
     vector.cluster_assignment = -1;
 
-    char *current_position;
-    current_position = line;
-    char *end_position;
-
-    for (int i = 0; i < dimensions; i++) {
+    for (i=0; i < dimensions; i++) {
         vector.coordinates[i] = strtod(current_position, &end_position);
         current_position = end_position;
         if (*current_position == ',') {
@@ -67,31 +60,34 @@ Vector create_vector_from_line(char *line, int dimensions) {
 
 
 int is_empty_line(char *line) {
-    return line[0] == '\n' || line[0] == '\0';
+    return line[0] == '\n' || line[0] == '\0' || line[0] == '\r';
 }
 
 
-void allocate_memory_for_vectors() {
+int allocate_memory_for_vectors() {
     Vector *temp;
     capacity *= 2; // Double the capacity
         temp = realloc(vectors, capacity * sizeof(Vector));  
         if (temp == NULL || vectors == NULL) {
-            fprintf(stderr, "Memory allocation failed\n");
+            printf("An Error Has Occurred\n");
             free(vectors);
             free(temp);
-            exit(EXIT_FAILURE);
+            return 0; // Indicate failure
         }
         vectors = temp;
+        return 1; // Indicate success
     }  
 
     
 Vector *read_lines_from_text() {
-    int dimensions = 0;
     char *line = NULL;
     Vector vector;
+    size_t len = 0;
+    int allocation_result;
+
     vectors = malloc(capacity * sizeof(Vector)); // Allocate memory for vectors
     number_of_vectors = 0;
-    size_t len = 0;
+    
     
     while (getline(&line, &len, stdin) != -1) {
         if (is_empty_line(line)) continue; // Skip empty lines
@@ -100,7 +96,11 @@ Vector *read_lines_from_text() {
         }
         vector = create_vector_from_line(line, dimensions);
         if (number_of_vectors >= capacity) {
-            allocate_memory_for_vectors();
+            allocation_result = allocate_memory_for_vectors();
+            if (allocation_result==0) {
+                free(line);
+                return NULL; // Exit if memory allocation fails
+            }
         }
         vectors[number_of_vectors] = vector;
         number_of_vectors++;
@@ -109,40 +109,54 @@ Vector *read_lines_from_text() {
     return vectors;
 }
 
+double calculate_distance(Vector *v1, Vector *v2) { //* in def is for declaring type.
+    double sum = 0.0;
+    double diff;
+    int i;
 
-Cluster* initialize_clusters() {
-    Cluster *clusters = malloc(K * sizeof(Cluster));
-    for (int i = 0; i < K; i++) {
+    for (i = 0; i < dimensions; i++) {
+        diff = v1->coordinates[i] - v2->coordinates[i]; // Use -> to access coordinates since v1 and v2 are pointers
+        sum += diff * diff;
+    }
+    return sqrt(sum);
+}
+
+void initialize_clusters() {
+    int i;
+    clusters = malloc(K * sizeof(Cluster));
+    for (i = 0; i < K; i++) {
         clusters[i].id_number = i;
         clusters[i].number_of_assigned_vectors = 0;
         clusters[i].current_centroid.coordinates = malloc(dimensions * sizeof(double)); 
         clusters[i].previous_centroid.coordinates = malloc(dimensions * sizeof(double));
     }
-    return clusters;
 }
 
 void copy_vector(Vector *from, Vector *to) {
-    for (int i = 0; i < dimensions; i++) {
+    int i;
+    for (i = 0; i < dimensions; i++) {
         to->coordinates[i] = from->coordinates[i];
     }
 }
 
 
-int initialize_centroids() {
-    for (int i = 0; i < K; i++) {
-        for (int j = 0; j < dimensions; j++) {
-            copy_vector(&vectors[i], &clusters[i].current_centroid);
-            vectors[i].cluster_assignment = i; 
-        }
+void initialize_centroids() {
+    int i;
+    for (i = 0; i < K; i++) {
+        copy_vector(&vectors[i], &clusters[i].current_centroid);
+        vectors[i].cluster_assignment = i; 
     }
 }
 
 int find_closest_cluster(Vector *vector) {
     int closest_cluster_index = 0;
-    double min_distance = calculate_distance(vector, &clusters[0].current_centroid);
-    
-    for (int i = 1; i < K; i++) {
-        double distance = calculate_distance(vector, &clusters[i].current_centroid);
+    double min_distance;
+    double distance;
+    int i;
+
+    min_distance = calculate_distance(vector, &clusters[0].current_centroid);
+    for (i = 1; i < K; i++) {
+        distance = calculate_distance(vector, &clusters[i].current_centroid);
         if (distance < min_distance) {
             min_distance = distance;
             closest_cluster_index = i;
@@ -152,38 +166,46 @@ int find_closest_cluster(Vector *vector) {
 }
 
 void reset_clusters(Cluster *clusters) {
-    for (int i = 0; i < K; i++) {
+    int i;
+    for (i = 0; i < K; i++) {
         clusters[i].number_of_assigned_vectors = 0;
     }
 }
 
 void assign_vectors_to_clusters(Cluster *clusters, Vector *vectors) {
+    
+    int i;
+    int closest_cluster_index;
     reset_clusters(clusters);
-    for (int i = 0; i < number_of_vectors; i++) {
-        int closest_cluster_index = find_closest_cluster(&vectors[i]);
+
+    for (i = 0; i < number_of_vectors; i++) {
+        closest_cluster_index = find_closest_cluster(&vectors[i]);
         clusters[closest_cluster_index].number_of_assigned_vectors++;
         vectors[i].cluster_assignment = closest_cluster_index;
     }
 }
 
 void update_centroids(Cluster *clusters, Vector *vectors) {
-    for (int i = 0; i < K; i++) {
-        for (int j = 0; j < dimensions; j++) {
+    int i, j;
+    int cluster_index;
+
+    for (i = 0; i < K; i++) {
+        for (j = 0; j < dimensions; j++) {
             clusters[i].previous_centroid.coordinates[j] = clusters[i].current_centroid.coordinates[j];
             clusters[i].current_centroid.coordinates[j] = 0.0;
         }
     }
 
-    for (int i = 0; i < number_of_vectors; i++) {
-        int cluster_index = vectors[i].cluster_assignment;
-        for (int j = 0; j < dimensions; j++) {
+    for (i = 0; i < number_of_vectors; i++) {
+        cluster_index = vectors[i].cluster_assignment;
+        for (j = 0; j < dimensions; j++) {
             clusters[cluster_index].current_centroid.coordinates[j] += vectors[i].coordinates[j];
         }
     }
 
-    for (int i = 0; i < K; i++) {
+    for (i = 0; i < K; i++) {
         if (clusters[i].number_of_assigned_vectors > 0) {
-            for (int j = 0; j < dimensions; j++) {
+            for (j = 0; j < dimensions; j++) {
                 clusters[i].current_centroid.coordinates[j] /= clusters[i].number_of_assigned_vectors;
             }
         }
@@ -191,7 +213,8 @@ void update_centroids(Cluster *clusters, Vector *vectors) {
 }
 
 int check_convergence(Cluster *clusters) {
-    for (int i = 0; i < K; i++) {
+    int i;
+    for (i = 0; i < K; i++) {
         if (calculate_distance(&clusters[i].current_centroid, &clusters[i].previous_centroid) > epsilon) {
             return 0; // Not converged
         }
@@ -200,21 +223,11 @@ int check_convergence(Cluster *clusters) {
 }
 
 
-
-
-double calculate_distance(Vector *v1, Vector *v2) { //* in def is for declaring type.
-    double sum = 0.0;
-    for (int i = 0; i < dimensions; i++) {
-        double diff = v1->coordinates[i] - v2->coordinates[i]; // Use -> to access coordinates since v1 and v2 are pointers
-        sum += diff * diff;
-    }
-    return sqrt(sum);
-}
-
 void clustering() {
+    int iterations = 0;
     initialize_clusters();
     initialize_centroids();
-    int iterations = 0;
+
     while (iterations < max_iterations) {
         assign_vectors_to_clusters(clusters, vectors);
         update_centroids(clusters, vectors);
@@ -226,8 +239,9 @@ void clustering() {
 }
 
 void print_centroids() {
-for (int i = 0; i < K; i++) {
-        for (int j = 0; j < dimensions; j++) {
+    int i, j;
+for (i = 0; i < K; i++) {
+        for (j = 0; j < dimensions; j++) {
             printf("%.4f", clusters[i].current_centroid.coordinates[j]);
             
             // If it is NOT the last dimension, print a comma
@@ -240,25 +254,54 @@ for (int i = 0; i < K; i++) {
     }
 }
 
+void free_vectors() {
+    int i;
+    for (i = 0; i < number_of_vectors; i++) {
+        free(vectors[i].coordinates);
+    }   
+    free(vectors);       
+}
+
+void free_clusters() {
+    int i;
+    for (i = 0; i < K; i++) {
+        free(clusters[i].current_centroid.coordinates);
+        free(clusters[i].previous_centroid.coordinates);
+    }
+    free(clusters);
+}
 int main(int argc, char *argv[]) {
-    int K = atoi(argv[1]);
+    if (argc < 2 || argc > 3) {
+        printf("An Error Has Occurred\n"); // 
+        return 1; // 
+    }
+    K = atoi(argv[1]);
     if (argc == 3) {
         max_iterations = atoi(argv[2]);
     }
-    if (K <= 0 || max_iterations <= 0) {
-        fprintf(stderr, "Error: K and max_iterations must be positive integers.\n");
-        return EXIT_FAILURE;
+
+    if (max_iterations <= 1 || max_iterations >= 800) {
+        printf("Incorrect maximum iteration!\n"); // [cite: 18]
+        return 1; // 
     }
+
     read_lines_from_text();
+    if (vectors == NULL) {
+        free_vectors();
+        printf("An Error Has Occurred\n");
+        return 1; // Exit if reading vectors failed
+    }
+
+    if (K <= 1 || K >= number_of_vectors) {
+        printf("Incorrect number of clusters!\n"); // [cite: 18]
+        free_vectors();
+        return 1; // 
+    }
+
     clustering();
     print_centroids();
 
-
-    
-    
-
-
-    // Initialize clusters and vectors
-    // Call clustering function
+    free_clusters(); 
+    free_vectors();           
     return 0;
 }
